@@ -122,6 +122,29 @@ const getModelName = () => {
 };
 
 /**
+ * Sanitize a JSON string by escaping control characters and fixing common issues
+ * @param str - The string to sanitize
+ * @returns The sanitized string
+ */
+const sanitizeJSONString = (str: string): string => {
+  // Replace any backslash followed by 'n' with an actual newline character
+  str = str.replace(/\\n/g, '\n');
+  
+  // Escape any unescaped control characters
+  str = str.replace(/[\u0000-\u001F\u007F-\u009F]/g, (c) => {
+    return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
+  });
+
+  // Replace single quotes with double quotes for property names
+  str = str.replace(/'([^']+)':/g, '"$1":');
+
+  // Ensure all string values are enclosed in double quotes
+  str = str.replace(/:\s*'([^']*)'/g, ': "$1"');
+
+  return str;
+};
+
+/**
  * Extract JSON objects from a string
  * @param str - The string containing JSON objects
  * @returns An array of Step objects
@@ -131,17 +154,27 @@ const extractJSONFromString = (str: string): Step[] => {
   const matches = str.match(jsonRegex);
   
   if (!matches) {
-    throw new Error('No valid JSON found in the response');
+    console.warn('No valid JSON found in the response:', str);
+    return [];
   }
 
   return matches.map(jsonStr => {
     try {
-      return JSON.parse(jsonStr) as Step;
+      const sanitizedStr = sanitizeJSONString(jsonStr);
+      const parsed = JSON.parse(sanitizedStr) as Step;
+      
+      // Validate the parsed object
+      if (!parsed.title || !parsed.content || !parsed.next_action) {
+        console.warn('Parsed JSON is missing required fields:', parsed);
+        return null;
+      }
+      
+      return parsed;
     } catch (error) {
-      console.error('Error parsing JSON:', error);
-      throw error;
+      console.error('Error parsing JSON:', error, 'Original string:', jsonStr);
+      return null;
     }
-  });
+  }).filter((step): step is Step => step !== null);
 };
 
 /**
@@ -224,6 +257,11 @@ export const sendMessage = async (
         if (step.next_action === 'final_answer') {
           return; // End the function if we reach a final answer
         }
+      }
+
+      if (steps.length === 0) {
+        console.warn('No valid steps extracted from response:', stepContent);
+        // You might want to add some fallback behavior here
       }
 
     } catch (error) {
