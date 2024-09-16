@@ -20,6 +20,7 @@ interface ApiKeys {
   openai: string;
   groq: string;
   gemini: string;
+  anthropic: string;
   custom: string;
 }
 
@@ -27,6 +28,7 @@ interface CustomModels {
   openai: string;
   groq: string;
   gemini: string;
+  anthropic: string;
   custom: string;
 }
 
@@ -54,16 +56,19 @@ const App: React.FC = () => {
     openai: '',
     groq: '',
     gemini: '',
+    anthropic: '',
     custom: '',
   });
   const [customModels, setCustomModels] = useState<CustomModels>({
     openai: 'gpt-4o',
-    groq: 'mixtral-8x7b-32768',
+    groq: 'llama-3.1-70b-versatile',
     gemini: 'gemini-1.5-flash',
+    anthropic: 'claude-3-sonnet-20240229',
     custom: 'antropic-vertex',
   });
   const [selectedLLM, setSelectedLLM] = useState('openai');
   const [customBaseUrl, setCustomBaseUrl] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom of message list
@@ -87,10 +92,12 @@ const App: React.FC = () => {
     ));
     setInput('');
     setIsLoading(true);
+    setErrorMessage(null);
+
+    const assistantMessageId = Date.now() + 1;
 
     try {
       // Add assistant message placeholder
-      const assistantMessageId = Date.now() + 1;
       setChats(prevChats => prevChats.map(chat => 
         chat.id === currentChatId 
           ? { ...chat, messages: [...chat.messages, { id: assistantMessageId, role: 'assistant', content: '', steps: [] }] }
@@ -119,6 +126,14 @@ const App: React.FC = () => {
       });
     } catch (error) {
       console.error('Error:', error);
+      const errorMsg = error instanceof Error ? error.message : 'An unknown error occurred';
+      setErrorMessage(errorMsg);
+      // Remove the placeholder assistant message if there's an error
+      setChats(prevChats => prevChats.map(chat => 
+        chat.id === currentChatId 
+          ? { ...chat, messages: chat.messages.filter(msg => msg.id !== assistantMessageId) }
+          : chat
+      ));
     } finally {
       setIsLoading(false);
     }
@@ -127,6 +142,7 @@ const App: React.FC = () => {
   // Select a chat
   const handleChatSelect = (chatId: string) => {
     setCurrentChatId(chatId);
+    setErrorMessage(null);
   };
 
   // Save configuration
@@ -162,6 +178,7 @@ const App: React.FC = () => {
     };
     setChats(prevChats => [...prevChats, newChat]);
     setCurrentChatId(newChatId);
+    setErrorMessage(null);
   };
 
   // Remove a chat
@@ -176,6 +193,7 @@ const App: React.FC = () => {
       const remainingChats = chats.filter(chat => chat.id !== chatId);
       setCurrentChatId(remainingChats[remainingChats.length - 1].id);
     }
+    setErrorMessage(null);
   };
 
   const currentChat = chats.find(chat => chat.id === currentChatId);
@@ -270,6 +288,11 @@ const App: React.FC = () => {
                   <div className="loading-indicator">Thinking...</div>
                 </div>
               )}
+              {errorMessage && (
+                <div className="error-message">
+                  Error: {errorMessage}
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
             {/* Chat input form */}
@@ -300,6 +323,7 @@ const App: React.FC = () => {
                 <option value="openai">OpenAI</option>
                 <option value="groq">Groq</option>
                 <option value="gemini">Gemini</option>
+                <option value="anthropic">Anthropic</option>
                 <option value="custom">Custom</option>
               </select>
             </label>

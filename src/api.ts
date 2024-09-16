@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 // Current LLM provider
 let currentLLM = 'openai';
@@ -8,6 +8,7 @@ let apiKeys = {
   openai: '',
   groq: '',
   gemini: '',
+  anthropic: '',
   custom: ''
 };
 
@@ -16,10 +17,11 @@ let customBaseUrl = '';
 
 // Default models for each provider
 let customModels = {
-  openai: 'gpt-3.5-turbo',
-  groq: 'mixtral-8x7b-32768',
-  gemini: 'gemini-pro',
-  custom: 'gpt-3.5-turbo'
+  openai: 'gpt-4o',
+  groq: 'llama-3.1-70b-versatile',
+  gemini: 'gemini-1.5-flash',
+  anthropic: 'claude-3-sonnet-20240229',
+  custom: 'antropic-vertex'
 };
 
 // Store chat histories
@@ -30,7 +32,7 @@ let chatHistories: { [chatId: string]: { role: string; content: string }[] } = {
  * @param llm - The LLM provider to set
  */
 export const setLLM = (llm: string) => {
-  if (['openai', 'groq', 'gemini', 'custom'].includes(llm)) {
+  if (['openai', 'groq', 'gemini', 'anthropic', 'custom'].includes(llm)) {
     currentLLM = llm;
   } else {
     throw new Error('Invalid LLM specified');
@@ -90,6 +92,8 @@ const getApiUrl = () => {
       return 'https://api.groq.com/openai/v1/chat/completions';
     case 'gemini':
       return `https://generativelanguage.googleapis.com/v1beta/models/${customModels.gemini}:generateContent?key=${apiKeys.gemini}`;
+    case 'anthropic':
+      return 'https://api.anthropic.com/v1/messages';
     case 'custom':
       return `${customBaseUrl}/v1/chat/completions`;
     default:
@@ -106,7 +110,10 @@ const getHeaders = () => {
     'Content-Type': 'application/json',
   };
 
-  if (currentLLM !== 'gemini') {
+  if (currentLLM === 'anthropic') {
+    headers['x-api-key'] = apiKeys.anthropic;
+    headers['anthropic-version'] = '2023-06-01';
+  } else if (currentLLM !== 'gemini') {
     headers['Authorization'] = `Bearer ${apiKeys[currentLLM as keyof typeof apiKeys]}`;
   }
 
@@ -215,6 +222,9 @@ export const sendMessage = async (
     { role: 'user', content: message },
   ];
 
+  const maxRetries = 3;
+  let retryCount = 0;
+
   while (true) {
     try {
       const apiUrl = getApiUrl();
@@ -227,6 +237,12 @@ export const sendMessage = async (
         requestBody = {
           contents: [{ parts: messages.map(msg => ({ text: `${msg.role}: ${msg.content}` })) }],
           generationConfig: { maxOutputTokens: 300 }
+        };
+      } else if (currentLLM === 'anthropic') {
+        requestBody = {
+          model: modelName,
+          messages: messages,
+          max_tokens: 300,
         };
       } else {
         requestBody = {
@@ -242,6 +258,8 @@ export const sendMessage = async (
       let stepContent: string;
       if (currentLLM === 'gemini') {
         stepContent = response.data.candidates[0].content.parts[0].text;
+      } else if (currentLLM === 'anthropic') {
+        stepContent = response.data.content[0].text;
       } else {
         stepContent = response.data.choices[0].message.content;
       }
@@ -265,8 +283,24 @@ export const sendMessage = async (
       }
 
     } catch (error) {
-      console.error('Error sending message:', error);
-      throw error;
+      retryCount++;
+      if (retryCount >= maxRetries) {
+        let errorMessage = 'Max retries reached. Unable to get a valid response from the API.';
+        if (axios.isAxiosError(error)) {
+          const axiosError = error as AxiosError;
+          errorMessage += ` Status: ${axiosError.response?.status}. Message: ${axiosError.message}`;
+          if (axiosError.response?.data) {
+            errorMessage += ` Response data: ${JSON.stringify(axiosError.response.data)}`;
+          }
+        } else {
+          errorMessage += ` Error: ${error instanceof Error ? error.message : String(error)}`;
+        }
+        console.error(errorMessage);
+        throw new Error(errorMessage);
+      }
+      console.warn(`Error sending message (attempt ${retryCount}/${maxRetries}):`, error);
+      // Wait for a short time before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
     }
   }
 };

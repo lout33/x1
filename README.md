@@ -18,7 +18,7 @@ x1 is designed to enhance the reasoning abilities of LLMs by implementing a dyna
 - Multiple chat management for comparing different reasoning approaches
 - Responsive design for desktop and mobile use
 
-## Inspired by g1
+## Inspired by g1 https://github.com/bklieger-groq/g1
 
 x1 is inspired by the g1 project, which demonstrates the potential of prompting strategies to improve LLM reasoning. Like g1, x1 aims to:
 
