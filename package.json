@@ -1,7 +1,8 @@
 {
-  "name": "minimalist-chat-gpt",
-  "private": true,
-  "version": "0.0.0",
+  "name": "x1",
+  "version": "1.0.0",
+  "description": "A lightweight chat interface inspired by g1, focusing on improving LLM reasoning capabilities through visualized reasoning chains. Built with React, TypeScript, and Vite.",
+  "private": false,
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -26,5 +27,28 @@
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
     "vite": "^5.4.1"
-  }
+  },
+  "keywords": [
+    "x1",
+    "g1-inspired",
+    "llm",
+    "reasoning-chains",
+    "chain-of-thought",
+    "react",
+    "typescript",
+    "vite",
+    "openai",
+    "groq",
+    "gemini"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lout33/x1.git"
+  },
+  "author": "lout33",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lout33/x1/issues"
+  },
+  "homepage": "https://github.com/lout33/x1#readme"
 }
