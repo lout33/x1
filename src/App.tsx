@@ -237,6 +237,10 @@ const App: React.FC = () => {
 
   return (
     <div className="chat-app">
+      {/* GitHub link */}
+      <a href="https://github.com/lout33/x1" target="_blank" rel="noopener noreferrer" className="github-link">
+        GitHub
+      </a>
       {/* Chat sidebar */}
       <div className="chat-sidebar">
         <h2>Chat History</h2>
